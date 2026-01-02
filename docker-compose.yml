@@ -31,6 +31,7 @@ services:
     restart: unless-stopped
     networks:
       - proxy
+      - internal
     ports:
       - 3000:3000
     env_file:
@@ -38,9 +39,32 @@ services:
     volumes:
       - ./data:/app/data
 
+  warp:
+    image: ghcr.io/cloudflare/warp:latest
+    container_name: warp
+    restart: unless-stopped
+    environment:
+      - WARP_MODE=proxy
+    networks:
+      - internal
+
+  gost:
+    image: ginuerzh/gost
+    container_name: gost
+    restart: unless-stopped
+    command: >
+      -L=http://:8080
+      -F=socks5://warp:1080
+    depends_on:
+      - warp
+    networks:
+      - internal
+
 networks:
   proxy:
     name: proxy
+  internal:
+    name: internal
 
 configs:
   traefik_static:
@@ -104,6 +128,8 @@ configs:
             service: aiostreams
             tls:
               certResolver: letsencrypt
+            middlewares:
+              - aiostreams-auth
 
         services:
           aiostreams:
@@ -116,3 +142,7 @@ configs:
             basicAuth:
               users:
                 - "${DASHBOARD_BASIC_AUTH}"
+          aiostreams-auth:
+            basicAuth:
+              users:
+                - "${AIOSTREAMS_BASIC_AUTH}"
