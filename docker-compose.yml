@@ -12,23 +12,13 @@ services:
       - "443:443"
       - "8080:8080"
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./letsencrypt:/letsencrypt
-      - ./dynamic:/dynamic:ro
-    command:
-      - "--entrypoints.web.address=:80"
-      - "--entrypoints.web.http.redirections.entrypoint.to=websecure"
-      - "--entrypoints.web.http.redirections.entrypoint.scheme=https"
-      - "--entrypoints.web.http.redirections.entrypoint.permanent=true"
-      - "--entrypoints.websecure.address=:443"
-      - "--providers.file.directory=/dynamic"
-      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
-      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}"
-      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
-      - "--api.dashboard=true"
-      - "--api.insecure=false"
-      - "--log.level=INFO"
-      - "--accesslog=true"
-      - "--metrics.prometheus=true"
+    configs:
+      - source: traefik_static
+        target: /etc/traefik/traefik.yml
+      - source: traefik_dynamic
+        target: /etc/traefik/dynamic.yml
 
   whoami:
     image: traefik/whoami
@@ -40,3 +30,78 @@ services:
 networks:
   proxy:
     name: proxy
+
+configs:
+  traefik_static:
+    content: |
+      entryPoints:
+        web:
+          address: ":80"
+          http:
+            redirections:
+              entrypoint:
+                to: websecure
+                scheme: https
+                permanent: true
+        websecure:
+          address: ":443"
+
+      providers:
+        docker:
+          exposedByDefault: false
+          network: proxy
+        file:
+          filename: /etc/traefik/dynamic.yml
+
+      certificatesResolvers:
+        letsencrypt:
+          acme:
+            tlsChallenge: {}
+            email: ${ACME_EMAIL}
+            storage: /letsencrypt/acme.json
+
+      api:
+        dashboard: true
+        insecure: false
+
+      log:
+        level: INFO
+
+      accessLog: true
+
+      metrics:
+        prometheus: {}
+
+  traefik_dynamic:
+    content: |
+      http:
+        routers:
+          dashboard:
+            rule: "Host(`dashboard.${DOMAIN}`)"
+            entryPoints:
+              - websecure
+            service: api@internal
+            tls:
+              certResolver: letsencrypt
+            middlewares:
+              - dashboard-auth
+          
+          whoami:
+            rule: "Host(`whoami.${DOMAIN}`)"
+            entryPoints:
+              - websecure
+            service: whoami
+            tls:
+              certResolver: letsencrypt
+
+        services:
+          whoami:
+            loadBalancer:
+              servers:
+                - url: "http://whoami:80"
+
+        middlewares:
+          dashboard-auth:
+            basicAuth:
+              users:
+                - "${DASHBOARD_BASIC_AUTH}"
