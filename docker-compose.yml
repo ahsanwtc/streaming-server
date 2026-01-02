@@ -19,13 +19,24 @@ services:
         target: /etc/traefik/traefik.yml
       - source: traefik_dynamic
         target: /etc/traefik/dynamic.yml
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
-  whoami:
-    image: traefik/whoami
-    container_name: whoami
+  aiostreams:
+    image: ghcr.io/viren070/aiostreams:latest
+    container_name: aiostreams
     restart: unless-stopped
     networks:
       - proxy
+    ports:
+      - 3000:3000
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
 
 networks:
   proxy:
@@ -86,19 +97,19 @@ configs:
             middlewares:
               - dashboard-auth
           
-          whoami:
-            rule: "Host(`whoami.${DOMAIN}`)"
+          aiostreams:
+            rule: "Host(`aiostreams.${DOMAIN}`)"
             entryPoints:
               - websecure
-            service: whoami
+            service: aiostreams
             tls:
               certResolver: letsencrypt
 
         services:
-          whoami:
+          aiostreams:
             loadBalancer:
               servers:
-                - url: "http://whoami:80"
+                - url: "http://aiostreams:3000"
 
         middlewares:
           dashboard-auth:
