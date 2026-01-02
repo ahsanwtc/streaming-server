@@ -50,6 +50,7 @@ configs:
         docker:
           exposedByDefault: false
           network: proxy
+          apiVersion: "1.52"
         file:
           filename: /etc/traefik/dynamic.yml
 
