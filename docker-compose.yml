@@ -40,16 +40,16 @@ services:
       - ./data:/app/data
 
   warp:
-    image: ghcr.io/cloudflare/warp:latest
+    image: caomingjun/warp
     container_name: warp
     restart: unless-stopped
     environment:
-      - WARP_MODE=proxy
+      - WARP_SLEEP=2
     networks:
       - internal
 
   gost:
-    image: ginuerzh/gost
+    image: gogost/gost
     container_name: gost
     restart: unless-stopped
     command: >
