@@ -32,6 +32,8 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./diun:/data
+    env_file:
+      - .env
     environment:
       - TZ=Europe/Berlin
       - LOG_LEVEL=info
