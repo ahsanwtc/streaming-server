@@ -25,6 +25,23 @@ services:
       timeout: 5s
       retries: 3
 
+  diun:
+    image: crazymax/diun:latest
+    container_name: diun
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./diun:/data
+    environment:
+      - TZ=Europe/Berlin
+      - LOG_LEVEL=info
+      - DIUN_WATCH_WORKERS=10
+      - DIUN_WATCH_SCHEDULE=0 */6 * * *
+      - DIUN_PROVIDERS_DOCKER=true
+      - DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true
+    networks:
+      - internal
+
   aiostreams:
     image: ghcr.io/viren070/aiostreams:latest
     container_name: aiostreams
@@ -134,8 +151,8 @@ configs:
             service: aiostreams
             tls:
               certResolver: letsencrypt
-            middlewares:
-              - aiostreams-auth
+            # middlewares:
+            #  - aiostreams-auth
 
         services:
           aiostreams:
