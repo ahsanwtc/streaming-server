@@ -82,11 +82,60 @@ services:
     networks:
       - internal
 
+  floppy:
+    image: ghcr.io/dannyvfilms/floppy:latest
+    container_name: floppy
+    restart: unless-stopped
+    depends_on:
+      floppy-redis:
+        condition: service_healthy
+    networks:
+      - proxy
+      - floppy-internal
+    env_file:
+      - .env.floppy
+    environment:
+      - TZ=Europe/Berlin
+      - PUID=1000
+      - PGID=1000
+      - REDIS_URL=redis://floppy-redis:6379
+      - FLOPPY_DATA_DIR=/floppy/db
+      - BACKUP_DIR=/floppy/backups
+      - DB_SNAPSHOT_ENABLED=True
+      - URLS=https://floppy.${DOMAIN}
+      - ALLOWED_HOSTS=floppy.${DOMAIN}
+      - USE_X_FORWARDED=True
+      - USE_X_FORWARDED_PROTO=True
+      - DEBUG=False
+      - DEMO_ACCOUNT_ENABLED=False
+      # flip to False and recreate once your account exists
+      - REGISTRATION=True
+    volumes:
+      - ./appdata/floppy/db:/floppy/db
+      - ./appdata/floppy/backups:/floppy/backups
+
+  floppy-redis:
+    image: redis:8-alpine
+    container_name: floppy-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "", "--maxmemory", "256mb", "--maxmemory-policy", "volatile-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    networks:
+      - floppy-internal
+    volumes:
+      - ./cache/floppy-redis:/data
+
 networks:
   proxy:
     name: proxy
   internal:
     name: internal
+  floppy-internal:
+    name: floppy-internal
 
 configs:
   traefik_static:
@@ -155,11 +204,24 @@ configs:
             # middlewares:
             #  - aiostreams-auth
 
+          floppy:
+            rule: "Host(`floppy.${DOMAIN}`)"
+            entryPoints:
+              - websecure
+            service: floppy
+            tls:
+              certResolver: letsencrypt
+
         services:
           aiostreams:
             loadBalancer:
               servers:
                 - url: "http://aiostreams:3000"
+
+          floppy:
+            loadBalancer:
+              servers:
+                - url: "http://floppy:8000"
 
         middlewares:
           dashboard-auth:
