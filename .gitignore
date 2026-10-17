@@ -3,3 +3,5 @@
 !.env.floppy.example
 appdata/
 cache/
+data/
+diun/
