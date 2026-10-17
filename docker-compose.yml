@@ -108,8 +108,7 @@ services:
       - USE_X_FORWARDED_PROTO=True
       - DEBUG=False
       - DEMO_ACCOUNT_ENABLED=False
-      # flip to False and recreate once your account exists
-      - REGISTRATION=True
+      - REGISTRATION=False
     volumes:
       - ./appdata/floppy/db:/floppy/db
       - ./appdata/floppy/backups:/floppy/backups
